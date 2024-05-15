@@ -35,7 +35,13 @@ export const bytesToKBytes = (bytes: number) => Math.round((bytes / 1000) * 100)
 export const getMetaData = async (buffer: Buffer) =>
   await sharp(buffer, { failOnError: false }).metadata()
 
-export const getDimensions = async function (buffer: Buffer): Promise<FileDimensions> {
+export const getDimensions = async function (
+  buffer: Buffer,
+  extname?: String
+): Promise<FileDimensions> {
+  if (!(await canBeProcessed(buffer, extname))) {
+    return { width: undefined, height: undefined }
+  }
   return await getMetaData(buffer).then(({ width, height }) => ({ width, height }))
 }
 
@@ -75,7 +81,10 @@ export const allowedFormats: Array<AttachmentOptions['forceFormat']> = [
   'tiff',
 ]
 
-export const canBeProcessed = async (buffer: Buffer) => {
+export const canBeProcessed = async (buffer: Buffer, extname?: String) => {
+  if (extname && !allowedFormats.includes(extname as AttachmentOptions['forceFormat'])) {
+    return false
+  }
   const { format } = await getMetaData(buffer)
   return format && allowedFormats.includes(format as AttachmentOptions['forceFormat'])
 }
@@ -163,12 +172,13 @@ export const generateName = function ({
 
 export const optimize = async function (
   buffer: Buffer,
-  options?: AttachmentOptions
+  options?: AttachmentOptions,
+  extname?: String
 ): Promise<OptimizedOutput> {
   const { optimizeOrientation, optimizeSize, forceFormat } = options || {}
 
   // Check if the image is in the right format or can be size optimised
-  if (!optimizeSize || !(await canBeProcessed(buffer))) {
+  if (!optimizeSize || !(await canBeProcessed(buffer, extname))) {
     return { buffer }
   }
 
@@ -203,13 +213,14 @@ export const optimize = async function (
 
 export const generateThumbnail = async function (
   imageData: ImageInfo,
-  options: AttachmentOptions
+  options: AttachmentOptions,
+  extension?: String
 ): Promise<ImageInfo | null> {
   options = getMergedOptions(options)
   const blurhashEnabled = !!options.blurhash?.enabled
   let blurhash: string | undefined
 
-  if (!(await canBeProcessed(imageData.buffer!))) {
+  if (!(await canBeProcessed(imageData.buffer!, extension))) {
     return null
   }
 
@@ -270,7 +281,8 @@ export const generateThumbnail = async function (
 
 export const generateBreakpointImages = async function (
   imageData: ImageInfo,
-  options: AttachmentOptions
+  options: AttachmentOptions,
+  extname?: String
 ) {
   options = getMergedOptions(options)
   /**
@@ -281,15 +293,18 @@ export const generateBreakpointImages = async function (
   /**
    * Noop if image format is not allowed
    */
-  if (!(await canBeProcessed(imageData.buffer!))) {
+  if (!(await canBeProcessed(imageData.buffer!, extname))) {
     return []
   }
 
   const originalDimensions: FileDimensions = await getDimensions(imageData.buffer!)
 
-  const activeBreakpoints = pickBy(options.breakpoints, (value) => {
-    return value !== 'off'
-  })
+  const activeBreakpoints =
+    !originalDimensions.width && !originalDimensions.height
+      ? false
+      : pickBy(options.breakpoints, (value) => {
+          return value !== 'off'
+        })
 
   if (isEmpty(activeBreakpoints)) return []
 
@@ -299,7 +314,7 @@ export const generateBreakpointImages = async function (
 
       const isBreakpointSmallerThanOriginal = breakpointSmallerThan(
         breakpointValue,
-        originalDimensions
+        originalDimensions!
       )
 
       if (isBreakpointSmallerThanOriginal) {

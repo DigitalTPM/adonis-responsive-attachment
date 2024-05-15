@@ -18,7 +18,7 @@ import { LoggerContract } from '@ioc:Adonis/Core/Logger'
 import type { MultipartFileContract } from '@ioc:Adonis/Core/BodyParser'
 import { DriveManagerContract, ContentHeaders, Visibility } from '@ioc:Adonis/Core/Drive'
 import {
-  allowedFormats,
+  // allowedFormats,
   generateBreakpointImages,
   generateName,
   generateThumbnail,
@@ -85,11 +85,11 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
       throw new SyntaxError('You should provide a non-falsy value')
     }
 
-    if (allowedFormats.includes(file?.subtype as AttachmentOptions['forceFormat']) === false) {
-      throw new RangeError(
-        `Uploaded file is not an allowable image. Make sure that you uploaded only the following format: "jpeg", "png", "webp", "tiff", and "avif".`
-      )
-    }
+    // if (allowedFormats.includes(file?.subtype as AttachmentOptions['forceFormat']) === false) {
+    //   throw new RangeError(
+    //     `Uploaded file is not an allowable image. Make sure that you uploaded only the following format: "jpeg", "png", "webp", "tiff", and "avif".`
+    //   )
+    // }
 
     if (!file.tmpPath) {
       throw new Error('Please provide a valid file')
@@ -131,13 +131,13 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
         })
 
         const { mime, ext } = bufferProperty!
-        const subtype = mime.split('/').pop()
+        // const subtype = mime.split('/').pop()
 
-        if (allowedFormats.includes(subtype as AttachmentOptions['forceFormat']) === false) {
-          throw new RangeError(
-            `Uploaded file is not an allowable image. Make sure that you uploaded only the following format: "jpeg", "png", "webp", "tiff", and "avif".`
-          )
-        }
+        // if (allowedFormats.includes(subtype as AttachmentOptions['forceFormat']) === false) {
+        //   throw new RangeError(
+        //     `Uploaded file is not an allowable image. Make sure that you uploaded only the following format: "jpeg", "png", "webp", "tiff", and "avif".`
+        //   )
+        // }
 
         const attributes = {
           extname: ext,
@@ -348,7 +348,7 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
   protected async enhanceFile(): Promise<ImageInfo> {
     // Optimise the image buffer and return the optimised buffer
     // and the info of the image
-    const { buffer, info } = await optimize(this.buffer!, this.options)
+    const { buffer, info } = await optimize(this.buffer!, this.options, this.extname)
 
     // Override the `imageInfo` object with the optimised `info` object
     // As the optimised `info` object is preferred
@@ -420,7 +420,7 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
       /**
        * Generate image thumbnail data
        */
-      const thumbnailImageData = await generateThumbnail(enhancedImageData, OPTIONS)
+      const thumbnailImageData = await generateThumbnail(enhancedImageData, OPTIONS, this.extname)
 
       if (thumbnailImageData) {
         // Set blurhash to top-level image data
@@ -447,7 +447,11 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
       /**
        * Generate breakpoint image data
        */
-      const breakpointFormats = await generateBreakpointImages(enhancedImageData, OPTIONS)
+      const breakpointFormats = await generateBreakpointImages(
+        enhancedImageData,
+        OPTIONS,
+        this.extname
+      )
       if (breakpointFormats && Array.isArray(breakpointFormats) && breakpointFormats.length > 0) {
         for (const format of breakpointFormats) {
           if (!format) continue
@@ -468,7 +472,7 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
         }
       }
 
-      const { width, height } = await getDimensions(enhancedImageData.buffer!)
+      const { width, height } = await getDimensions(enhancedImageData.buffer!, this.extname)
 
       delete enhancedImageData.buffer
 
@@ -480,7 +484,7 @@ export class ResponsiveAttachment implements ResponsiveAttachmentContract {
       /**
        * Update the width and height
        */
-      if (OPTIONS.keepOriginal) {
+      if (OPTIONS.keepOriginal && width && height) {
         this.width = enhancedImageData.width
         this.height = enhancedImageData.height
       }
