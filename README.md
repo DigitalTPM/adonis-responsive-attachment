@@ -59,7 +59,7 @@ It also relies heavily on the [Sharp image manipulation library](https://sharp.p
 Install the package from the npm registry as follows.
 
 ```bash
-yarn add adonis-responsive-attachment
+npm install @digitaltpm/adonis-responsive-attachment
 ```
 
 Next, configure the package by running the following ace command.
